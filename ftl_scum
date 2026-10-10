@@ -1,125 +1,161 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env python3
+"""
+FTL Scum - A command-line save-scumming utility for FTL: Faster Than Light.
+"""
 
-SRC="$HOME/.local/share/FasterThanLight/continue.sav"
-DEFAULT_DEST_DIR="$HOME/Documents/ftl_scum_saves"
-CONFIG_FILE="$HOME/.config/ftl_save_scum.conf"
-DEST_DIR=""
+import os
+import sys
+import shutil
+import struct
+import re
+import subprocess
+from datetime import datetime
+from typing import List, Tuple, Any
 
-usage() {
-    cat <<EOF
-Usage: $(basename "$0") [save|restore]
+try:
+    import readline  # type: ignore
 
-  save      Save a snapshot of the current FTL game state (default).
-  restore   Browse and restore a previously saved snapshot.
-EOF
-}
+    has_readline = True
+except ImportError:
+    has_readline = False
 
-# command -> "apt package : one-line explanation of what it's used for"
-declare -A REQUIRED_CMDS=(
-    [fzf]="fzf : interactive fuzzy picker used by the restore command"
-    [find]="findutils : locates saved snapshots on disk"
-    [sort]="coreutils : orders snapshots by save time"
-    [date]="coreutils : timestamps snapshots and formats dates"
-    [cp]="coreutils : copies save files to/from the backup directory"
-    [sed]="sed : parses metadata companion files"
-    [mkdir]="coreutils : creates the backup directory"
-    [readlink]="coreutils : resolves this script's own path for the fzf preview"
-)
-
-check_deps() {
-    local missing=()
-    local cmd
-    for cmd in "${!REQUIRED_CMDS[@]}"; do
-        command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
-    done
-
-    if [[ ${#missing[@]} -gt 0 ]]; then
-        echo "Error: missing required dependencies:" >&2
-        local pkgs=()
-        for cmd in "${missing[@]}"; do
-            local info="${REQUIRED_CMDS[$cmd]}"
-            echo "  - $cmd (${info#* : }) -- package: ${info%% :*}" >&2
-            pkgs+=("${info%% :*}")
-        done
-        echo >&2
-        echo "Install with: sudo apt-get install $(printf '%s\n' "${pkgs[@]}" | sort -u | tr '\n' ' ')" >&2
-        exit 1
-    fi
-}
-
-# Reads $CONFIG_FILE for a snapshot directory. If it's missing or the path
-# in it isn't usable, prompts for one (prefilled with DEFAULT_DEST_DIR),
-# creates it, and writes it back to $CONFIG_FILE. Sets $DEST_DIR either way.
-resolve_dest_dir() {
-    local configured=""
-    if [[ -f "$CONFIG_FILE" ]]; then
-        configured=$(grep -m1 -v '^[[:space:]]*#' "$CONFIG_FILE" 2>/dev/null | grep -m1 -v '^[[:space:]]*$' || true)
-        configured="${configured#"${configured%%[![:space:]]*}"}"
-        configured="${configured%"${configured##*[![:space:]]}"}"
-        configured="${configured/#\~/$HOME}"
-    fi
-
-    if [[ -n "$configured" ]] && mkdir -p "$configured" 2>/dev/null; then
-        DEST_DIR="$configured"
-        return
-    fi
-
-    local entered
-    read -e -i "$DEFAULT_DEST_DIR" -p "Save snapshots to directory: " entered
-    entered="${entered:-$DEFAULT_DEST_DIR}"
-    entered="${entered/#\~/$HOME}"
-    entered="${entered%/}"
-
-    if ! mkdir -p "$entered"; then
-        echo "Error: cannot create or access directory: $entered" >&2
-        exit 1
-    fi
-
-    mkdir -p "$(dirname "$CONFIG_FILE")"
-    echo "$entered" > "$CONFIG_FILE"
-
-    DEST_DIR="$entered"
-}
-
-show_meta() {
-    local base="$1"
-    local f="$DEST_DIR/$base"
-    printf "File: %s\n\n" "$base"
-    if [[ -f "$f.meta" ]]; then
-        cat "$f.meta"
-    else
-        echo "(no description)"
-    fi
-}
-
-# Description of the most recently saved snapshot in $DEST_DIR, if any,
-# used to prefill the description prompt in do_save.
-last_description() {
-    local latest
-    latest=$(find "$DEST_DIR" -maxdepth 1 -name '*.sav' -printf '%T@\t%f\n' 2>/dev/null | sort -rn | head -n1 | cut -f2)
-    [[ -n "$latest" && -f "$DEST_DIR/$latest.meta" ]] || return 0
-    sed -n 's/^Description: //p' "$DEST_DIR/$latest.meta" | head -n1
-}
+SRC: str = os.path.expanduser("~/.local/share/FasterThanLight/continue.sav")
+DEFAULT_dest_dir: str = os.path.expanduser("~/Documents/ftl_scum_saves")
+CONFIG_FILE: str = os.path.expanduser("~/.config/ftl_save_scum.conf")
+dest_dir: str = ""
 
 
-parse_save() {
-    python3 - "$1" << 'PYTHON_EOF'
-import sys, struct, re
+def input_with_prefill(prompt: str, text: str) -> str:
+    """Prompts the user for input with a prefilled value."""
+    if has_readline:
 
-def getInt(f):
-    b = f.read(4)
-    if not b or len(b) < 4: return 0
+        def hook() -> None:
+            readline.insert_text(text) # pyright: ignore[reportPossiblyUnboundVariable,reportOptionalMemberAccess,reportUnknownMemberType]
+            readline.redisplay() # pyright: ignore[reportPossiblyUnboundVariable,reportOptionalMemberAccess,reportUnknownMemberType]
+
+        readline.set_startup_hook(hook) # pyright: ignore[reportPossiblyUnboundVariable,reportOptionalMemberAccess,reportUnknownMemberType]
+        try:
+            return input(prompt)
+        finally:
+            readline.set_startup_hook(None) # pyright: ignore[reportPossiblyUnboundVariable,reportOptionalMemberAccess,reportUnknownMemberType]
+    else:
+        print(f"(Default: {text})")
+        val = input(prompt)
+        return val if val else text
+
+
+def check_deps() -> None:
+    """Checks for required external dependencies."""
+    if not shutil.which("fzf"):
+        print("Error: missing required dependency: fzf", file=sys.stderr)
+        print("Install with: sudo apt-get install fzf", file=sys.stderr)
+        sys.exit(1)
+
+
+def resolve_dest_dir() -> None:
+    """Resolves and creates the destination directory for backups."""
+    global dest_dir
+    configured: str = ""
+    if os.path.isfile(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        configured = os.path.expanduser(line)
+                        break
+        except Exception:
+            pass
+
+    if configured:
+        try:
+            os.makedirs(configured, exist_ok=True)
+            dest_dir = configured
+            return
+        except Exception:
+            pass
+
+    entered: str = input_with_prefill("Save snapshots to directory: ", DEFAULT_dest_dir)
+    entered = os.path.expanduser(entered.strip() or DEFAULT_dest_dir)
+
+    try:
+        os.makedirs(entered, exist_ok=True)
+    except Exception as e:
+        print(
+            f"Error: cannot create or access directory: {entered}\n{e}", file=sys.stderr
+        )
+        sys.exit(1)
+
+    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        f.write(entered + "\n")
+    dest_dir = entered
+
+
+def show_meta(base: str) -> None:
+    """Prints the metadata for a given save file base name."""
+    print(f"File: {base}\n")
+    meta_path: str = os.path.join(dest_dir, base) + ".meta"
+    if os.path.isfile(meta_path):
+        with open(meta_path, "r", encoding="utf-8") as f:
+            print(f.read())
+    else:
+        print("(no description)")
+
+
+def last_description() -> str:
+    """Gets the user description from the most recent save file."""
+    if not os.path.isdir(dest_dir):
+        return ""
+
+    saves: List[Tuple[float, str]] = []
+    for fname in os.listdir(dest_dir):
+        if fname.endswith(".sav"):
+            full_path = os.path.join(dest_dir, fname)
+            saves.append((os.path.getmtime(full_path), fname))
+
+    if not saves:
+        return ""
+
+    saves.sort(reverse=True, key=lambda x: x[0])
+    latest: str = saves[0][1]
+    meta_path: str = os.path.join(dest_dir, latest + ".meta")
+
+    if not os.path.isfile(meta_path):
+        return ""
+
+    desc: str = ""
+    with open(meta_path, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("Description: "):
+                desc = line[len("Description: ") :].strip()
+                break
+    return desc
+
+
+def get_int(f: Any) -> int:
+    """Reads a 4-byte little-endian integer from a file stream."""
+    b: bytes = f.read(4)
+    if not b or len(b) < 4:
+        return 0
     return struct.unpack("<i", b)[0]
 
-def getBool(f): return getInt(f) != 0
 
-def getString(f):
-    length = getInt(f)
-    if length <= 0 or length > 10000: return ""
-    return f.read(length).decode('utf-8', errors='ignore')
+def get_bool(f: Any) -> bool:
+    """Reads a boolean (as a 4-byte int) from a file stream."""
+    return get_int(f) != 0
 
-def prettify(name):
+
+def get_string(f: Any) -> str:
+    """Reads a length-prefixed string from a file stream."""
+    length: int = get_int(f)
+    if length <= 0 or length > 10000:
+        return ""
+    return f.read(length).decode("utf-8", errors="ignore")
+
+
+def prettify(name: str) -> str:
+    """Translates internal game IDs to human-readable strings."""
     known = {
         "MISSILES_2_PLAYER": "Artemis Missile",
         "MISSILES_HULL": "Hull Missile",
@@ -145,225 +181,291 @@ def prettify(name):
         "ZOLTAN_BYPASS": "Zoltan Shield Bypass",
         "WEAPON_PREIGNITER": "Weapon Pre-Igniter",
         "LONG_RANGE_SCANNER": "Long-Ranged Scanners",
-        "SCRAP_COLLECTOR": "Scrap Recovery Arm"
+        "SCRAP_COLLECTOR": "Scrap Recovery Arm",
     }
-    if name in known: return known[name]
-    
-    s = name.replace("_", " ").title()
-    s = s.replace(" 1", " I").replace(" 2", " II").replace(" 3", " III").replace(" 4", " IV")
+    if name in known:
+        return known[name]
+    s: str = name.replace("_", " ").title()
+    s = (
+        s.replace(" 1", " I")
+        .replace(" 2", " II")
+        .replace(" 3", " III")
+        .replace(" 4", " IV")
+    )
     return s
 
-def main():
-    if len(sys.argv) < 2: return
-    sav_path = sys.argv[1]
-    
-    blueprint = "Unknown"
-    sector = 1
-    
+
+def parse_save(sav_path: str) -> str:
+    """Parses an FTL continue.sav file for ship information."""
+    blueprint: str = "Unknown"
+    sector: int = 1
+
     try:
-        with open(sav_path, 'rb') as f:
-            fileFormat = getInt(f)
-            if fileFormat == 11: getBool(f)
-            if fileFormat in [7, 8, 9, 11]: getBool(f)
-            for _ in range(5): getInt(f)
-            playerShipName = getString(f)
-            blueprint = getString(f)
-            sector = getInt(f)
-            data = f.read()
+        with open(sav_path, "rb") as f:
+            file_format: int = get_int(f)
+            if file_format == 11:
+                get_bool(f)
+            if file_format in [7, 8, 9, 11]:
+                get_bool(f)
+            for _ in range(5):
+                get_int(f)
+            get_string(f)  # playerShipName
+            blueprint = get_string(f)
+            sector = get_int(f)
+            data: bytes = f.read()
     except Exception:
-        return
-        
-    weapons = []
-    drones = []
-    augments = []
-    first_offset = -1
-    
-    for match in re.finditer(b'[A-Za-z0-9_]{4,}', data):
-        s = match.group(0).decode('ascii', errors='ignore')
-        start = match.start()
-        end = match.end()
-        
+        return ""
+
+    weapons: List[str] = []
+    drones: List[str] = []
+    augments: List[str] = []
+    first_offset: int = -1
+
+    for match in re.finditer(b"[A-Za-z0-9_]{4,}", data):
+        s: str = match.group(0).decode("ascii", errors="ignore")
+        start: int = match.start()
+        end: int = match.end()
+
         if first_offset != -1 and start - first_offset > 2000:
             continue
-            
-        is_weapon = False
-        if 'DLC' in s or 'BOMBER' in s: continue
-        if any(x in s for x in ['LASER', 'BEAM', 'BOMB', 'MISSILES', 'ION', 'SHOTGUN', 'HALBERD', 'GLAIVE', 'FLAK', 'CHARGE']):
-            if s not in ['COMBAT_BEAM', 'weapon_upgrade']: is_weapon = True
-                
-        is_drone = False
-        if ('DEFENSE_' in s or 'COMBAT_' in s or 'DRONE_' in s or 'SHIP_REPAIR' in s or 'ANTI_DRONE' in s) and 'RECOVERY' not in s:
-            if s not in ['used_drone', 'DRONE_RECOVERY']: is_drone = True
-                
-        is_augment = False
-        if s in ['DRONE_RECOVERY', 'ROCK_ARMOR', 'ZOLTAN_BYPASS', 'WEAPON_PREIGNITER', 'SCRAP_COLLECTOR', 'REPAIR_ARM', 'LONG_RANGE_SCANNER']:
+
+        is_weapon: bool = False
+        if "DLC" in s or "BOMBER" in s:
+            pass
+        elif any(
+            x in s
+            for x in [
+                "LASER",
+                "BEAM",
+                "BOMB",
+                "MISSILES",
+                "ION",
+                "SHOTGUN",
+                "HALBERD",
+                "GLAIVE",
+                "FLAK",
+                "CHARGE",
+            ]
+        ):
+            if s not in ["COMBAT_BEAM", "weapon_upgrade"]:
+                is_weapon = True
+
+        is_drone: bool = False
+        if (
+            "DEFENSE_" in s
+            or "COMBAT_" in s
+            or "DRONE_" in s
+            or "SHIP_REPAIR" in s
+            or "ANTI_DRONE" in s
+        ) and "RECOVERY" not in s:
+            if s not in ["used_drone", "DRONE_RECOVERY"]:
+                is_drone = True
+
+        is_augment: bool = False
+        if s in [
+            "DRONE_RECOVERY",
+            "ROCK_ARMOR",
+            "ZOLTAN_BYPASS",
+            "WEAPON_PREIGNITER",
+            "SCRAP_COLLECTOR",
+            "REPAIR_ARM",
+            "LONG_RANGE_SCANNER",
+        ]:
             is_augment = True
 
         if is_weapon or is_drone or is_augment:
-            if first_offset == -1: first_offset = start
-            
+            if first_offset == -1:
+                first_offset = start
+
             if is_weapon or is_drone:
                 if end + 4 <= len(data):
-                    armed_val = struct.unpack('<i', data[end:end+4])[0]
+                    armed_val: int = struct.unpack("<i", data[end : end + 4])[0]
                     if armed_val in (0, 1):
-                        if is_weapon and s not in weapons: weapons.append(s)
-                        if is_drone and s not in drones: drones.append(s)
+                        if is_weapon and s not in weapons:
+                            weapons.append(s)
+                        if is_drone and s not in drones:
+                            drones.append(s)
             elif is_augment:
-                if s not in augments: augments.append(s)
-            
-    ship_class = blueprint.replace('PLAYER_SHIP_', '')
-    layout = "A"
-    if ship_class.endswith('_2'):
+                if s not in augments:
+                    augments.append(s)
+
+    ship_class: str = blueprint.replace("PLAYER_SHIP_", "")
+    layout: str = "A"
+    if ship_class.endswith("_2"):
         layout = "B"
         ship_class = ship_class[:-2]
-    elif ship_class.endswith('_3'):
+    elif ship_class.endswith("_3"):
         layout = "C"
         ship_class = ship_class[:-2]
-        
-    if ship_class == "HARD": ship_class = "Kestrel"
-    
-    print(f"Ship: {ship_class.title()} {layout}")
-    print(f"Sector: {sector}")
-    if weapons: print(f"Weapons: {', '.join(prettify(w) for w in weapons)}")
-    if drones: print(f"Drones: {', '.join(prettify(d) for d in drones)}")
-    if augments: print(f"Augments: {', '.join(prettify(a) for a in augments)}")
+
+    if ship_class == "HARD":
+        ship_class = "Kestrel"
+
+    parts: List[str] = []
+    parts.append(f"Ship: {ship_class.title()} {layout}")
+    parts.append(f"Sector: {sector}")
+    if weapons:
+        parts.append(f"Weapons: {', '.join(prettify(w) for w in weapons)}")
+    if drones:
+        parts.append(f"Drones: {', '.join(prettify(d) for d in drones)}")
+    if augments:
+        parts.append(f"Augments: {', '.join(prettify(a) for a in augments)}")
+
+    return "\n".join(parts)
+
+
+def do_save() -> None:
+    """Handles the saving of a snapshot."""
+    if not os.path.isfile(SRC):
+        print(f"Error: FTL save not found at {SRC}", file=sys.stderr)
+        sys.exit(1)
+
+    suggestion: str = f"continue_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sav"
+    filename: str = input_with_prefill("Save snapshot as: ", suggestion).strip()
+
+    if not filename:
+        print("Error: filename cannot be empty", file=sys.stderr)
+        sys.exit(1)
+
+    if not filename.endswith(".sav"):
+        filename += ".sav"
+
+    dest_path: str = os.path.join(dest_dir, filename)
+    meta_path: str = dest_path + ".meta"
+
+    if os.path.exists(dest_path):
+        confirm: str = input(f"{dest_path} already exists. Overwrite? [y/N] ")
+        if not confirm.lower().startswith("y"):
+            print("Aborted.")
+            sys.exit(1)
+
+    parsed_info: str = parse_save(SRC)
+    prev_description: str = last_description()
+
+    if " - Sec" in prev_description or " - W:" in prev_description:
+        prev_description = ""
+
+    if parsed_info:
+        print("\n--- Current Save Data ---")
+        print(parsed_info)
+        print("-------------------------\n")
+
+    description: str = input_with_prefill(
+        "Description (optional): ", prev_description
+    ).strip()
+
+    shutil.copy2(SRC, dest_path)
+
+    with open(meta_path, "w", encoding="utf-8") as f:
+        if parsed_info:
+            f.write(parsed_info + "\n")
+        f.write(f"Description: {description}\n\n")
+        f.write(f"Saved: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+    print(f"Saved snapshot to {dest_path}")
+
+
+def do_restore() -> None:
+    """Handles restoring a snapshot via fzf."""
+    os.makedirs(dest_dir, exist_ok=True)
+    saves: List[Tuple[float, str]] = []
+    for fname in os.listdir(dest_dir):
+        if fname.endswith(".sav"):
+            full_path = os.path.join(dest_dir, fname)
+            saves.append((os.path.getmtime(full_path), fname))
+
+    if not saves:
+        print(f"No saved snapshots found in {dest_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    saves.sort(reverse=True, key=lambda x: x[0])
+    save_names: List[str] = [x[1] for x in saves]
+
+    script_path = os.path.abspath(__file__)
+    preview_cmd = f"python3 {script_path} --show-meta {{}}"
+
+    fzf = subprocess.Popen(
+        [
+            "fzf",
+            "--height=70%",
+            "--layout=reverse",
+            "--border",
+            "--prompt=Restore > ",
+            "--header=Select a snapshot to restore  (Enter: confirm, Esc: cancel)",
+            "--preview=" + preview_cmd,
+            "--preview-window=right:55%:wrap",
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+
+    out, _ = fzf.communicate("\n".join(save_names))
+    if not out:
+        print("Aborted.")
+        sys.exit(1)
+
+    choice = out.strip()
+    if not choice:
+        print("Aborted.")
+        sys.exit(1)
+
+    print(f"\nSelected: {choice}")
+    meta_path = os.path.join(dest_dir, choice + ".meta")
+    if os.path.isfile(meta_path):
+        with open(meta_path, "r", encoding="utf-8") as f:
+            print(f.read())
+    print()
+
+    confirm = input(
+        f"Restore this snapshot over the current FTL save? This will overwrite {SRC} [y/N] "
+    )
+    if not confirm.lower().startswith("y"):
+        print("Aborted.")
+        sys.exit(1)
+
+    os.makedirs(os.path.dirname(SRC), exist_ok=True)
+    shutil.copy2(os.path.join(dest_dir, choice), SRC)
+    print(f"Restored '{choice}' to {SRC}")
+
+
+def usage() -> None:
+    """Prints usage information."""
+    print(f"Usage: {os.path.basename(__file__)} [save|restore]")
+    print("\n  save      Save a snapshot of the current FTL game state (default).")
+    print("  restore   Browse and restore a previously saved snapshot.")
+
+
+def main() -> None:
+    """Main entry point."""
+    if len(sys.argv) > 1 and sys.argv[1] == "--show-meta":
+        resolve_dest_dir()
+        if len(sys.argv) > 2:
+            show_meta(sys.argv[2])
+        sys.exit(0)
+
+    check_deps()
+    resolve_dest_dir()
+
+    mode: str = "save"
+    if len(sys.argv) > 1:
+        arg = sys.argv[1]
+        if arg in ("save", "-s", "--save"):
+            mode = "save"
+        elif arg in ("restore", "-r", "--restore"):
+            mode = "restore"
+        elif arg in ("-h", "--help"):
+            usage()
+            sys.exit(0)
+        else:
+            print(f"Unknown option: {arg}", file=sys.stderr)
+            usage()
+            sys.exit(1)
+
+    if mode == "save":
+        do_save()
+    elif mode == "restore":
+        do_restore()
+
 
 if __name__ == "__main__":
     main()
-PYTHON_EOF
-}
-
-do_save() {
-    if [[ ! -f "$SRC" ]]; then
-        echo "Error: FTL save not found at $SRC" >&2
-        exit 1
-    fi
-
-    suggestion="continue_$(date +%Y%m%d_%H%M%S)"
-    read -e -i "$suggestion" -p "Save snapshot as: " filename
-
-    if [[ -z "$filename" ]]; then
-        echo "Error: filename cannot be empty" >&2
-        exit 1
-    fi
-
-    # Ensure it ends with .sav
-    [[ "$filename" == *.sav ]] || filename="${filename}.sav"
-
-    dest_path="$DEST_DIR/$filename"
-    meta_path="${dest_path}.meta"
-
-    if [[ -e "$dest_path" ]]; then
-        read -e -p "$dest_path already exists. Overwrite? [y/N] " confirm
-        if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-            echo "Aborted."
-            exit 1
-        fi
-    fi
-
-    local parsed_info
-    parsed_info="$(parse_save "$SRC" 2>/dev/null)"
-
-    local prev_description
-    prev_description="$(last_description)"
-    
-    # If the previous description looks like our old auto-generated string format, clear it
-    if [[ "$prev_description" == *" - Sec"* || "$prev_description" == *" - W:"* ]]; then
-        prev_description=""
-    fi
-
-    if [[ -n "$parsed_info" ]]; then
-        echo
-        echo "--- Current Save Data ---"
-        echo "$parsed_info"
-        echo "-------------------------"
-    fi
-
-    read -e -i "$prev_description" -p "Description (optional): " description
-
-    cp -v "$SRC" "$dest_path"
-
-    {
-        if [[ -n "$parsed_info" ]]; then
-            echo "$parsed_info"
-        fi
-        echo "Description: $description"
-        echo
-        echo "Saved: $(date '+%Y-%m-%d %H:%M:%S')"
-    } > "$meta_path"
-}
-
-do_restore() {
-    mkdir -p "$DEST_DIR"
-
-    saves=()
-    while IFS=$'\t' read -r _ base; do
-        saves+=("$base")
-    done < <(find "$DEST_DIR" -maxdepth 1 -name '*.sav' -printf '%T@\t%f\n' | sort -rn)
-
-    if [[ ${#saves[@]} -eq 0 ]]; then
-        echo "No saved snapshots found in $DEST_DIR" >&2
-        exit 1
-    fi
-
-    local script_path
-    script_path="$(readlink -f "$0")"
-    preview_cmd="$(printf '%q' "$script_path") --show-meta {}"
-
-    choice=$(printf '%s\n' "${saves[@]}" | fzf \
-        --height=70% --layout=reverse --border \
-        --prompt="Restore > " \
-        --header="Select a snapshot to restore  (Enter: confirm, Esc: cancel)" \
-        --preview="$preview_cmd" \
-        --preview-window=right:55%:wrap)
-
-    if [[ -z "${choice:-}" ]]; then
-        echo "Aborted."
-        exit 1
-    fi
-
-    echo
-    echo "Selected: $choice"
-    if [[ -f "$DEST_DIR/$choice.meta" ]]; then
-        cat "$DEST_DIR/$choice.meta"
-    fi
-    echo
-
-    read -e -p "Restore this snapshot over the current FTL save? This will overwrite $SRC [y/N] " confirm
-    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-        echo "Aborted."
-        exit 1
-    fi
-
-    mkdir -p "$(dirname "$SRC")"
-    cp -v "$DEST_DIR/$choice" "$SRC"
-    echo "Restored '$choice' to $SRC"
-}
-
-# --show-meta is an internal hidden mode used by the fzf preview pane; it
-# skips the dependency check so the preview stays fast. By the time it runs,
-# the parent restore invocation has already resolved/written the config, so
-# this should just read it back without prompting.
-if [[ "${1:-}" == "--show-meta" ]]; then
-    resolve_dest_dir
-    show_meta "${2:-}"
-    exit 0
-fi
-
-check_deps
-
-mode="save"
-case "${1:-}" in
-    save|-s|--save) mode="save" ;;
-    restore|-r|--restore) mode="restore" ;;
-    -h|--help) usage; exit 0 ;;
-    "") mode="save" ;;
-    *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
-esac
-
-resolve_dest_dir
-
-case "$mode" in
-    save) do_save ;;
-    restore) do_restore ;;
-esac

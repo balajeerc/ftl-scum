@@ -1,0 +1,14 @@
+[MESSAGES CONTROL]
+disable=
+    too-many-locals,
+    too-many-boolean-expressions,
+    too-many-nested-blocks,
+    too-many-branches,
+    too-many-statements,
+    global-statement,
+    broad-exception-caught,
+    redefined-outer-name,
+    unused-import,
+    consider-using-with,
+    line-too-long,
+    invalid-name
