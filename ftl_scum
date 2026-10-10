@@ -12,13 +12,6 @@ import sys
 from datetime import datetime
 from typing import Any
 
-try:
-    import readline  # type: ignore
-
-    has_readline = True
-except ImportError:
-    has_readline = False
-
 SRC: str = os.path.expanduser("~/.local/share/FasterThanLight/continue.sav")
 DEFAULT_dest_dir: str = os.path.expanduser("~/Documents/ftl_scum_saves")
 CONFIG_FILE: str = os.path.expanduser("~/.config/ftl_save_scum.conf")
@@ -27,18 +20,18 @@ dest_dir: str = ""
 
 def input_with_prefill(prompt: str, text: str) -> str:
     """Prompts the user for input with a prefilled value."""
-    if has_readline:
-
+    try:
+        import readline
         def hook() -> None:
-            readline.insert_text(text) # pyright: ignore[reportPossiblyUnboundVariable,reportOptionalMemberAccess,reportUnknownMemberType]
-            readline.redisplay() # pyright: ignore[reportPossiblyUnboundVariable,reportOptionalMemberAccess,reportUnknownMemberType]
+            readline.insert_text(text)
+            readline.redisplay()
 
-        readline.set_startup_hook(hook) # pyright: ignore[reportPossiblyUnboundVariable,reportOptionalMemberAccess,reportUnknownMemberType]
+        readline.set_startup_hook(hook)
         try:
             return input(prompt)
         finally:
-            readline.set_startup_hook(None) # pyright: ignore[reportPossiblyUnboundVariable,reportOptionalMemberAccess,reportUnknownMemberType]
-    else:
+            readline.set_startup_hook(None)
+    except ImportError:
         print(f"(Default: {text})")
         val = input(prompt)
         return val if val else text
