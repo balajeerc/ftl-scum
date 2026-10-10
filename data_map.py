@@ -12,8 +12,8 @@ DATA_MAP: dict[str, ItemData] = {
     "AUTO_COOLDOWN": ItemData("Automated Re-loader", "Augment"),  # Verified
     "BACKUP_DNA": ItemData("Backup Dna", "Augment"),
     "BATTERY_BOOSTER": ItemData("Battery Booster", "Augment"),
-    "BATTLE": ItemData("Battle", "Unknown"),  # TODO: Verify type and name
-    "BEAM_1": ItemData("Beam 1", "Weapon"),
+    "BATTLE": ItemData("Combat I", "Drone"),  # Verified
+    "BEAM_1": ItemData("Mini Beam", "Weapon"),  # Verified
     "BEAM_2": ItemData("Beam 2", "Weapon"),
     "BEAM_3": ItemData("Beam 3", "Weapon"),
     "BEAM_BIO": ItemData("Beam Bio", "Weapon"),
@@ -22,7 +22,7 @@ DATA_MAP: dict[str, ItemData] = {
     "BEAM_LONG": ItemData("Beam Long", "Weapon"),
     "BOARDER": ItemData("Boarding", "Drone"),  # Verified
     "BOARDER_ION": ItemData("Boarder Ion", "Weapon"),
-    "BOMB_1": ItemData("Bomb 1", "Weapon"),
+    "BOMB_1": ItemData("Small Bomb", "Weapon"),  # Verified
     "BOMB_BREACH_1": ItemData("Bomb Breach 1", "Weapon"),
     "BOMB_BREACH_2": ItemData("Bomb Breach 2", "Weapon"),
     "BOMB_FIRE": ItemData("Bomb Fire", "Weapon"),
@@ -36,7 +36,7 @@ DATA_MAP: dict[str, ItemData] = {
     "COMBAT_BEAM": ItemData("Combat Beam", "Weapon"),
     "COMBAT_BEAM_2": ItemData("Combat Beam 2", "Weapon"),
     "COMBAT_FIRE": ItemData("Combat Fire", "Drone"),
-    "CREW_STIMS": ItemData("Crew Stims", "Augment"),
+    "CREW_STIMS": ItemData("Mantis Pheromones", "Augment"),  # Verified
     "DEFENSE_1": ItemData("Defense I", "Drone"),  # Verified
     "DEFENSE_2": ItemData("Defense II", "Drone"),  # Verified
     "DRONE_RECOVERY": ItemData("Drone Recovery Arm", "Augment"),  # Verified
