@@ -4,13 +4,13 @@ FTL Scum - A command-line save-scumming utility for FTL: Faster Than Light.
 """
 
 import os
-import sys
+import re
 import shutil
 import struct
-import re
 import subprocess
+import sys
 from datetime import datetime
-from typing import List, Tuple, Any
+from typing import Any
 
 try:
     import readline  # type: ignore
@@ -64,7 +64,7 @@ def resolve_dest_dir() -> None:
                     if line and not line.startswith("#"):
                         configured = os.path.expanduser(line)
                         break
-        except Exception:
+        except OSError:
             pass
 
     if configured:
@@ -72,7 +72,7 @@ def resolve_dest_dir() -> None:
             os.makedirs(configured, exist_ok=True)
             dest_dir = configured
             return
-        except Exception:
+        except OSError:
             pass
 
     entered: str = input_with_prefill("Save snapshots to directory: ", DEFAULT_dest_dir)
@@ -80,7 +80,7 @@ def resolve_dest_dir() -> None:
 
     try:
         os.makedirs(entered, exist_ok=True)
-    except Exception as e:
+    except OSError as e:
         print(
             f"Error: cannot create or access directory: {entered}\n{e}", file=sys.stderr
         )
@@ -108,7 +108,7 @@ def last_description() -> str:
     if not os.path.isdir(dest_dir):
         return ""
 
-    saves: List[Tuple[float, str]] = []
+    saves: list[tuple[float, str]] = []
     for fname in os.listdir(dest_dir):
         if fname.endswith(".sav"):
             full_path = os.path.join(dest_dir, fname)
@@ -213,12 +213,12 @@ def parse_save(sav_path: str) -> str:
             blueprint = get_string(f)
             sector = get_int(f)
             data: bytes = f.read()
-    except Exception:
+    except (OSError, struct.error, ValueError):
         return ""
 
-    weapons: List[str] = []
-    drones: List[str] = []
-    augments: List[str] = []
+    weapons: list[str] = []
+    drones: list[str] = []
+    augments: list[str] = []
     first_offset: int = -1
 
     for match in re.finditer(b"[A-Za-z0-9_]{4,}", data):
@@ -246,9 +246,8 @@ def parse_save(sav_path: str) -> str:
                 "FLAK",
                 "CHARGE",
             ]
-        ):
-            if s not in ["COMBAT_BEAM", "weapon_upgrade"]:
-                is_weapon = True
+        ) and s not in ["COMBAT_BEAM", "weapon_upgrade"]:
+            is_weapon = True
 
         is_drone: bool = False
         if (
@@ -257,9 +256,8 @@ def parse_save(sav_path: str) -> str:
             or "DRONE_" in s
             or "SHIP_REPAIR" in s
             or "ANTI_DRONE" in s
-        ) and "RECOVERY" not in s:
-            if s not in ["used_drone", "DRONE_RECOVERY"]:
-                is_drone = True
+        ) and "RECOVERY" not in s and s not in ["used_drone", "DRONE_RECOVERY"]:
+            is_drone = True
 
         is_augment: bool = False
         if s in [
@@ -285,9 +283,8 @@ def parse_save(sav_path: str) -> str:
                             weapons.append(s)
                         if is_drone and s not in drones:
                             drones.append(s)
-            elif is_augment:
-                if s not in augments:
-                    augments.append(s)
+            elif is_augment and s not in augments:
+                augments.append(s)
 
     ship_class: str = blueprint.replace("PLAYER_SHIP_", "")
     layout: str = "A"
@@ -301,7 +298,7 @@ def parse_save(sav_path: str) -> str:
     if ship_class == "HARD":
         ship_class = "Kestrel"
 
-    parts: List[str] = []
+    parts: list[str] = []
     parts.append(f"Ship: {ship_class.title()} {layout}")
     parts.append(f"Sector: {sector}")
     if weapons:
@@ -367,7 +364,7 @@ def do_save() -> None:
 def do_restore() -> None:
     """Handles restoring a snapshot via fzf."""
     os.makedirs(dest_dir, exist_ok=True)
-    saves: List[Tuple[float, str]] = []
+    saves: list[tuple[float, str]] = []
     for fname in os.listdir(dest_dir):
         if fname.endswith(".sav"):
             full_path = os.path.join(dest_dir, fname)
@@ -378,7 +375,7 @@ def do_restore() -> None:
         sys.exit(1)
 
     saves.sort(reverse=True, key=lambda x: x[0])
-    save_names: List[str] = [x[1] for x in saves]
+    save_names: list[str] = [x[1] for x in saves]
 
     script_path = os.path.abspath(__file__)
     preview_cmd = f"python3 {script_path} --show-meta {{}}"
