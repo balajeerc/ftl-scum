@@ -31,13 +31,13 @@ DATA_MAP: dict[str, ItemData] = {
     "BOMB_ION": ItemData("Bomb Ion", "Weapon"),
     "BOMB_STUN": ItemData("Bomb Stun", "Weapon"),
     "CLOAK_FIRE": ItemData("Stealth Weapons", "Augment"),  # Verified
-    "COMBAT_1": ItemData("Combat 1", "Drone"),
+    "COMBAT_1": ItemData("Combat I", "Drone"),  # Verified
     "COMBAT_2": ItemData("Combat 2", "Drone"),
     "COMBAT_BEAM": ItemData("Combat Beam", "Weapon"),
     "COMBAT_BEAM_2": ItemData("Combat Beam 2", "Weapon"),
     "COMBAT_FIRE": ItemData("Combat Fire", "Drone"),
     "CREW_STIMS": ItemData("Crew Stims", "Augment"),
-    "DEFENSE_1": ItemData("Defense 1", "Drone"),
+    "DEFENSE_1": ItemData("Defense I", "Drone"),  # Verified
     "DEFENSE_2": ItemData("Defense II", "Drone"),  # Verified
     "DRONE_RECOVERY": ItemData("Drone Recovery Arm", "Augment"),  # Verified
     "DRONE_SHIELD": ItemData("Drone Shield", "Drone"),
@@ -53,19 +53,19 @@ DATA_MAP: dict[str, ItemData] = {
     "ION_2": ItemData("Ion 2", "Weapon"),
     "ION_4": ItemData("Ion 4", "Weapon"),
     "ION_ARMOR": ItemData("Ion Armor", "Weapon"),
-    "ION_CHAINGUN": ItemData("Ion Chaingun", "Weapon"),
+    "ION_CHAINGUN": ItemData("Chain Ion", "Weapon"),  # Verified
     "ION_CHARGEGUN": ItemData("Ion Chargegun", "Weapon"),
     "ION_STUN": ItemData("Ion Stun", "Weapon"),
     "LASER_BURST_1": ItemData("Basic Laser", "Weapon"),  # Verified
     "LASER_BURST_2": ItemData("Laser Burst 2", "Weapon"),
     "LASER_BURST_2_A": ItemData("Burst Laser I", "Weapon"),  # Verified
     "LASER_BURST_3": ItemData("Laser Burst 3", "Weapon"),
-    "LASER_BURST_5": ItemData("Laser Burst 5", "Weapon"),
+    "LASER_BURST_5": ItemData("Burst Laser III", "Weapon"),  # Verified
     "LASER_CHAINGUN": ItemData("Chain Laser", "Weapon"),  # Verified
     "LASER_CHAINGUN_2": ItemData("Laser Chaingun 2", "Weapon"),
     "LASER_CHARGEGUN": ItemData("Laser Chargegun", "Weapon"),
     "LASER_CHARGEGUN_2": ItemData("Laser Chargegun 2", "Weapon"),
-    "LASER_HEAVY_1": ItemData("Laser Heavy 1", "Weapon"),
+    "LASER_HEAVY_1": ItemData("Heavy Laser I", "Weapon"),  # Verified
     "LASER_HEAVY_2": ItemData("Laser Heavy 2", "Weapon"),
     "LASER_HULL_1": ItemData("Laser Hull 1", "Weapon"),
     "LASER_HULL_2": ItemData("Laser Hull 2", "Weapon"),
@@ -86,7 +86,7 @@ DATA_MAP: dict[str, ItemData] = {
     "SCRAP_COLLECTOR": ItemData("Scrap Collector", "Augment"),
     "SHIELD_RECHARGE": ItemData("Shield Recharge", "Weapon"),
     "SHIP_REPAIR": ItemData("Ship Repair", "Drone"),
-    "SHOTGUN": ItemData("Shotgun", "Weapon"),
+    "SHOTGUN": ItemData("Flak I", "Weapon"),  # Verified
     "SHOTGUN_2": ItemData("Flak II", "Weapon"),  # Verified
     "SYSTEM_CASING": ItemData("System Casing", "Augment"),
     "TELEPORT_HEAL": ItemData("Teleport Heal", "Augment"),
