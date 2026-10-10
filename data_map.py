@@ -9,7 +9,7 @@ class ItemData:
 DATA_MAP: dict[str, ItemData] = {
     "ADV_SCANNERS": ItemData("Adv Scanners", "Augment"),
     "ANTI_DRONE": ItemData("Anti Drone", "Drone"),
-    "AUTO_COOLDOWN": ItemData("Auto Cooldown", "Augment"),
+    "AUTO_COOLDOWN": ItemData("Automated Re-loader", "Augment"),  # Verified
     "BACKUP_DNA": ItemData("Backup Dna", "Augment"),
     "BATTERY_BOOSTER": ItemData("Battery Booster", "Augment"),
     "BATTLE": ItemData("Battle", "Unknown"),  # TODO: Verify type and name
@@ -58,10 +58,10 @@ DATA_MAP: dict[str, ItemData] = {
     "ION_STUN": ItemData("Ion Stun", "Weapon"),
     "LASER_BURST_1": ItemData("Basic Laser", "Weapon"),  # Verified
     "LASER_BURST_2": ItemData("Laser Burst 2", "Weapon"),
-    "LASER_BURST_2_A": ItemData("Laser Burst 2 A", "Weapon"),
+    "LASER_BURST_2_A": ItemData("Burst Laser I", "Weapon"),  # Verified
     "LASER_BURST_3": ItemData("Laser Burst 3", "Weapon"),
     "LASER_BURST_5": ItemData("Laser Burst 5", "Weapon"),
-    "LASER_CHAINGUN": ItemData("Laser Chaingun", "Weapon"),
+    "LASER_CHAINGUN": ItemData("Chain Laser", "Weapon"),  # Verified
     "LASER_CHAINGUN_2": ItemData("Laser Chaingun 2", "Weapon"),
     "LASER_CHARGEGUN": ItemData("Laser Chargegun", "Weapon"),
     "LASER_CHARGEGUN_2": ItemData("Laser Chargegun 2", "Weapon"),
@@ -69,7 +69,7 @@ DATA_MAP: dict[str, ItemData] = {
     "LASER_HEAVY_2": ItemData("Laser Heavy 2", "Weapon"),
     "LASER_HULL_1": ItemData("Laser Hull 1", "Weapon"),
     "LASER_HULL_2": ItemData("Laser Hull 2", "Weapon"),
-    "LIFE_SCANNER": ItemData("Life Scanner", "Unknown"),  # TODO: Verify type and name
+    "LIFE_SCANNER": ItemData("Lifeform Scanner", "Augment"),  # Verified
     "MISSILES_1": ItemData("Missiles 1", "Weapon"),
     "MISSILES_2": ItemData("Missiles 2", "Weapon"),
     "MISSILES_2_PLAYER": ItemData("Missiles 2 Player", "Weapon"),
@@ -90,6 +90,6 @@ DATA_MAP: dict[str, ItemData] = {
     "SHOTGUN_2": ItemData("Flak II", "Weapon"),  # Verified
     "SYSTEM_CASING": ItemData("System Casing", "Augment"),
     "TELEPORT_HEAL": ItemData("Teleport Heal", "Augment"),
-    "WEAPON_PREIGNITE": ItemData("Weapon Preignite", "Augment"),
+    "WEAPON_PREIGNITE": ItemData("Weapon Pre-igniter", "Augment"),  # Verified
     "ZOLTAN_BYPASS": ItemData("Zoltan Bypass", "Augment"),
 }
