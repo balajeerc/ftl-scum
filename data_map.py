@@ -41,11 +41,12 @@ DATA_MAP: dict[str, ItemData] = {
     "DEFENSE_2": ItemData("Defense II", "Drone"),  # Verified
     "DRONE_RECOVERY": ItemData("Drone Recovery Arm", "Augment"),  # Verified
     "DRONE_SHIELD": ItemData("Shield Overcharger", "Drone"),  # Verified
+    "DEFENSE_SCRAMBLER": ItemData("Defense Scrambler", "Augment"),  # Verified
     "ENERGY_SHIELD": ItemData("Zoltan Shield", "Augment"),  # Verified
     "EXPLOSIVE_REPLICATOR": ItemData("Explosive Replicator", "Augment"),  # Verified
     "FEDERATION_BASE_ASSIST": ItemData("Federation Base Assist", "Event"),  # Verified
     "FIRE_EXTINGUISHERS": ItemData("Fire Suppression", "Augment"),  # Verified
-    "FLEET_DISTRACTION": ItemData("Fleet Distraction", "Event"),  # Verified
+    "FLEET_DISTRACTION": ItemData("Distraction Buoys", "Augment"),  # Verified
     "FTL_BOOSTER": ItemData("FTL Recharge Booster", "Augment"),  # Verified
     "FTL_JUMPER": ItemData("Adv. FTL Navigation", "Augment"),  # Verified
     "HIDDEN_FEDERATION_BASE_LIST": ItemData("Hidden Federation Base List", "Event"),  # Verified
@@ -67,8 +68,8 @@ DATA_MAP: dict[str, ItemData] = {
     "LASER_CHARGEGUN_2": ItemData("Charge Laser II", "Weapon"),  # Verified
     "LASER_HEAVY_1": ItemData("Heavy Laser I", "Weapon"),  # Verified
     "LASER_HEAVY_2": ItemData("Heavy Laser II", "Weapon"),  # Verified
-    "LASER_HULL_1": ItemData("Hull Smasher Laser I", "Weapon"),  # Verified
-    "LASER_HULL_2": ItemData("Hull Smasher Laser II", "Weapon"),  # Verified
+    "LASER_HULL_1": ItemData("Hull Laser I", "Weapon"),  # Verified
+    "LASER_HULL_2": ItemData("Hull Laser II", "Weapon"),  # Verified
     "LIFE_SCANNER": ItemData("Lifeform Scanner", "Augment"),  # Verified
     "MISSILES_1": ItemData("Leto Missile", "Weapon"),  # Verified
     "MISSILES_2": ItemData("Hermes Missile", "Weapon"),  # Verified
@@ -88,6 +89,7 @@ DATA_MAP: dict[str, ItemData] = {
     "SHIP_REPAIR": ItemData("Hull Repair", "Drone"),  # Verified
     "SHOTGUN": ItemData("Flak I", "Weapon"),  # Verified
     "SHOTGUN_2": ItemData("Flak II", "Weapon"),  # Verified
+    "SHOTGUN_PLAYER": ItemData("Adv. Flak", "Weapon"),  # Verified
     "SYSTEM_CASING": ItemData("Titanium System Casing", "Augment"),  # Verified
     "TELEPORT_HEAL": ItemData("Reconstructive Teleport", "Augment"),  # Verified
     "WEAPON_PREIGNITE": ItemData("Weapon Pre-igniter", "Augment"),  # Verified

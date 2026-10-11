@@ -4,13 +4,27 @@ FTL Scum - A command-line save-scumming utility for FTL: Faster Than Light.
 """
 
 import os
-import re
 import shutil
 import struct
 import subprocess
 import sys
 from datetime import datetime
 from typing import Any
+
+from data_map import DATA_MAP
+
+SHIP_NAMES: dict[str, str] = {
+    "HARD": "Kestrel",
+    "CIRCLE": "Engi",
+    "FED": "Federation",
+    "ENERGY": "Zoltan",
+    "MANTIS": "Mantis",
+    "JELLY": "Slug",
+    "ROCK": "Rock",
+    "STEALTH": "Stealth",
+    "ANAEROBIC": "Lanius",
+    "CRYSTAL": "Crystal",
+}
 
 SRC: str = os.path.expanduser("~/.local/share/FasterThanLight/continue.sav")
 DEFAULT_dest_dir: str = os.path.expanduser("~/Documents/ftl_scum_saves")
@@ -148,35 +162,8 @@ def get_string(f: Any) -> str:
 
 def prettify(name: str) -> str:
     """Translates internal game IDs to human-readable strings."""
-    known = {
-        "MISSILES_2_PLAYER": "Artemis Missile",
-        "MISSILES_HULL": "Hull Missile",
-        "LASER_CHAINGUN": "Chain Laser",
-        "LASER_BURST_2": "Burst Laser II",
-        "LASER_BURST_3": "Burst Laser III",
-        "LASER_BURST_1": "Burst Laser I",
-        "LASER_HULL_2": "Hull Laser II",
-        "LASER_HULL_1": "Hull Laser I",
-        "BOMB_BREACH_2": "Breach Bomb II",
-        "BOMB_HEAL_SYSTEM": "Healing Burst",
-        "SHOTGUN": "Flak I",
-        "SHOTGUN_2": "Flak II",
-        "BEAM_FIRE": "Fire Beam",
-        "ION_CHARGEGUN": "Charge Ion",
-        "DEFENSE_2": "Defense Drone II",
-        "DEFENSE_1": "Defense Drone I",
-        "SHIP_REPAIR": "Hull Repair Drone",
-        "COMBAT_BEAM": "Combat Beam Drone",
-        "ANTI_DRONE": "Anti-Combat Drone",
-        "DRONE_RECOVERY": "Drone Recovery Arm",
-        "ROCK_ARMOR": "Rock Plating",
-        "ZOLTAN_BYPASS": "Zoltan Shield Bypass",
-        "WEAPON_PREIGNITER": "Weapon Pre-Igniter",
-        "LONG_RANGE_SCANNER": "Long-Ranged Scanners",
-        "SCRAP_COLLECTOR": "Scrap Recovery Arm",
-    }
-    if name in known:
-        return known[name]
+    if name in DATA_MAP:
+        return DATA_MAP[name].name
     s: str = name.replace("_", " ").title()
     s = (
         s.replace(" 1", " I")
@@ -185,6 +172,121 @@ def prettify(name: str) -> str:
         .replace(" 4", " IV")
     )
     return s
+
+
+def parse_equipment(data: bytes) -> tuple[list[str], list[str], list[str], list[str]]:
+    """Locates and parses player weapons, drones, augments, and cargo."""
+    for pos in range(300, len(data) - 50):
+        w_count = struct.unpack("<i", data[pos : pos + 4])[0]
+        if not (0 <= w_count <= 4):
+            continue
+        p = pos + 4
+        weapons: list[str] = []
+        valid = True
+        for _ in range(w_count):
+            if p + 4 > len(data):
+                valid = False
+                break
+            slen = struct.unpack("<i", data[p : p + 4])[0]
+            p += 4
+            if not (1 <= slen <= 50) or p + slen + 4 > len(data):
+                valid = False
+                break
+            s = data[p : p + slen].decode("ascii", errors="ignore")
+            p += slen
+            armed = struct.unpack("<i", data[p : p + 4])[0]
+            p += 4
+            if armed not in (0, 1):
+                valid = False
+                break
+            if s not in DATA_MAP or DATA_MAP[s].type != "Weapon":
+                valid = False
+                break
+            weapons.append(s)
+        if not valid:
+            continue
+
+        if p + 4 > len(data):
+            continue
+        d_count = struct.unpack("<i", data[p : p + 4])[0]
+        if not (0 <= d_count <= 4):
+            continue
+        p += 4
+        drones: list[str] = []
+        for _ in range(d_count):
+            if p + 4 > len(data):
+                valid = False
+                break
+            slen = struct.unpack("<i", data[p : p + 4])[0]
+            p += 4
+            if not (1 <= slen <= 50) or p + slen + 28 > len(data):
+                valid = False
+                break
+            s = data[p : p + slen].decode("ascii", errors="ignore")
+            p += slen
+            armed = struct.unpack("<i", data[p : p + 4])[0]
+            p += 4
+            pctrl = struct.unpack("<i", data[p : p + 4])[0]
+            p += 4
+            p += 20  # spriteX, spriteY, roomId, roomSquare, health
+            if armed not in (0, 1) or pctrl not in (0, 1):
+                valid = False
+                break
+            if s not in DATA_MAP or DATA_MAP[s].type != "Drone":
+                valid = False
+                break
+            drones.append(s)
+        if not valid:
+            continue
+
+        if p + 4 > len(data):
+            continue
+        a_count = struct.unpack("<i", data[p : p + 4])[0]
+        if not (0 <= a_count <= 3):
+            continue
+        p += 4
+        augments: list[str] = []
+        for _ in range(a_count):
+            if p + 4 > len(data):
+                valid = False
+                break
+            slen = struct.unpack("<i", data[p : p + 4])[0]
+            p += 4
+            if not (1 <= slen <= 50) or p + slen > len(data):
+                valid = False
+                break
+            s = data[p : p + slen].decode("ascii", errors="ignore")
+            p += slen
+            if s not in DATA_MAP or DATA_MAP[s].type != "Augment":
+                valid = False
+                break
+            augments.append(s)
+        if not valid:
+            continue
+
+        if w_count + d_count + a_count == 0:
+            continue
+
+        cargo: list[str] = []
+        if p + 4 <= len(data):
+            c_count = struct.unpack("<i", data[p : p + 4])[0]
+            p += 4
+            if 0 <= c_count <= 4:
+                for _ in range(c_count):
+                    if p + 4 > len(data):
+                        break
+                    slen = struct.unpack("<i", data[p : p + 4])[0]
+                    p += 4
+                    if not (1 <= slen <= 50) or p + slen > len(data):
+                        break
+                    s = data[p : p + slen].decode("ascii", errors="ignore")
+                    p += slen
+                    if s in DATA_MAP:
+                        cargo.append(s)
+
+        return weapons, drones, augments, cargo
+
+    return [], [], [], []
 
 
 def parse_save(sav_path: str) -> str:
@@ -208,75 +310,7 @@ def parse_save(sav_path: str) -> str:
     except (OSError, struct.error, ValueError):
         return ""
 
-    weapons: list[str] = []
-    drones: list[str] = []
-    augments: list[str] = []
-    first_offset: int = -1
-
-    for match in re.finditer(b"[A-Za-z0-9_]{4,}", data):
-        s: str = match.group(0).decode("ascii", errors="ignore")
-        start: int = match.start()
-        end: int = match.end()
-
-        if first_offset != -1 and start - first_offset > 2000:
-            continue
-
-        is_weapon: bool = False
-        if "DLC" in s or "BOMBER" in s:
-            pass
-        elif any(
-            x in s
-            for x in [
-                "LASER",
-                "BEAM",
-                "BOMB",
-                "MISSILES",
-                "ION",
-                "SHOTGUN",
-                "HALBERD",
-                "GLAIVE",
-                "FLAK",
-                "CHARGE",
-            ]
-        ) and s not in ["COMBAT_BEAM", "weapon_upgrade"]:
-            is_weapon = True
-
-        is_drone: bool = False
-        if (
-            "DEFENSE_" in s
-            or "COMBAT_" in s
-            or "DRONE_" in s
-            or "SHIP_REPAIR" in s
-            or "ANTI_DRONE" in s
-        ) and "RECOVERY" not in s and s not in ["used_drone", "DRONE_RECOVERY"]:
-            is_drone = True
-
-        is_augment: bool = False
-        if s in [
-            "DRONE_RECOVERY",
-            "ROCK_ARMOR",
-            "ZOLTAN_BYPASS",
-            "WEAPON_PREIGNITER",
-            "SCRAP_COLLECTOR",
-            "REPAIR_ARM",
-            "LONG_RANGE_SCANNER",
-        ]:
-            is_augment = True
-
-        if is_weapon or is_drone or is_augment:
-            if first_offset == -1:
-                first_offset = start
-
-            if is_weapon or is_drone:
-                if end + 4 <= len(data):
-                    armed_val: int = struct.unpack("<i", data[end : end + 4])[0]
-                    if armed_val in (0, 1):
-                        if is_weapon and s not in weapons:
-                            weapons.append(s)
-                        if is_drone and s not in drones:
-                            drones.append(s)
-            elif is_augment and s not in augments:
-                augments.append(s)
+    weapons, drones, augments, cargo = parse_equipment(data)
 
     ship_class: str = blueprint.replace("PLAYER_SHIP_", "")
     layout: str = "A"
@@ -287,11 +321,10 @@ def parse_save(sav_path: str) -> str:
         layout = "C"
         ship_class = ship_class[:-2]
 
-    if ship_class == "HARD":
-        ship_class = "Kestrel"
+    display_class: str = SHIP_NAMES.get(ship_class, ship_class.title())
 
     parts: list[str] = []
-    parts.append(f"Ship: {ship_class.title()} {layout}")
+    parts.append(f"Ship: {display_class} {layout}")
     parts.append(f"Sector: {sector}")
     if weapons:
         parts.append(f"Weapons: {', '.join(prettify(w) for w in weapons)}")
@@ -299,6 +332,8 @@ def parse_save(sav_path: str) -> str:
         parts.append(f"Drones: {', '.join(prettify(d) for d in drones)}")
     if augments:
         parts.append(f"Augments: {', '.join(prettify(a) for a in augments)}")
+    if cargo:
+        parts.append(f"Cargo: {', '.join(prettify(c) for c in cargo)}")
 
     return "\n".join(parts)
 
