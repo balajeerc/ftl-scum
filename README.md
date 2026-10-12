@@ -1,8 +1,13 @@
 # FTL Scum
 
+If you are going to cheat on a decade old single player game, might as well do it with style :)
+
+## Overview
 A command-line save-scumming utility for *FTL: Faster Than Light*. 
 
 `ftl_scum` allows you to save snapshots of your current FTL game state, automatically parsing your `continue.sav` to generate human-readable metadata containing your equipped weapons, drones, augmentations, ship class, and sector. You can easily browse and restore your saved snapshots using an interactive `fzf` menu.
+
+![FTL Scum Snapshot](ftl_scum_snapshot.jpg)
 
 ## Features
 - **Auto-Parsing**: Reads FTL's binary save format (v1.6.1+) to extract your currently equipped loadout (Weapons, Drones, Augments).
