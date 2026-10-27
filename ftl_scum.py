@@ -99,13 +99,26 @@ def resolve_dest_dir() -> None:
 
 
 def show_meta(base: str) -> None:
-    """Prints the metadata for a given save file base name."""
+    """Refreshes ship details from the snapshot, preserving saved user metadata."""
     print(f"File: {base}\n")
-    meta_path: str = os.path.join(dest_dir, base) + ".meta"
+    save_path: str = os.path.join(dest_dir, base)
+    parsed_info: str = parse_save(save_path)
+    meta_path: str = save_path + ".meta"
+    metadata: str = ""
     if os.path.isfile(meta_path):
         with open(meta_path, "r", encoding="utf-8") as f:
-            print(f.read())
-    else:
+            metadata = f.read()
+    if parsed_info:
+        print(parsed_info)
+        generated_fields = ("Ship: ", "Sector: ", "Weapons: ", "Drones: ",
+                            "Augments: ", "Cargo: ")
+        metadata = "\n".join(
+            line for line in metadata.splitlines()
+            if not line.startswith(generated_fields)
+        )
+    if metadata:
+        print(metadata)
+    elif not parsed_info:
         print("(no description)")
 
 
@@ -434,10 +447,7 @@ def do_restore() -> None:
         sys.exit(1)
 
     print(f"\nSelected: {choice}")
-    meta_path = os.path.join(dest_dir, choice + ".meta")
-    if os.path.isfile(meta_path):
-        with open(meta_path, "r", encoding="utf-8") as f:
-            print(f.read())
+    show_meta(choice)
     print()
 
     confirm = input(

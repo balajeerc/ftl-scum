@@ -41,6 +41,7 @@ DATA_MAP: dict[str, ItemData] = {
     "DEFENSE_2": ItemData("Defense II", "Drone"),  # Verified
     "DRONE_RECOVERY": ItemData("Drone Recovery Arm", "Augment"),  # Verified
     "DRONE_SHIELD": ItemData("Shield Overcharger", "Drone"),  # Verified
+    "DRONE_SHIELD_PLAYER": ItemData("Shield Overcharger", "Drone"),  # Stealth C variant
     "DEFENSE_SCRAMBLER": ItemData("Defense Scrambler", "Augment"),  # Verified
     "ENERGY_SHIELD": ItemData("Zoltan Shield", "Augment"),  # Verified
     "EXPLOSIVE_REPLICATOR": ItemData("Explosive Replicator", "Augment"),  # Verified
@@ -66,6 +67,7 @@ DATA_MAP: dict[str, ItemData] = {
     "LASER_CHAINGUN_2": ItemData("Vulcan", "Weapon"),  # Verified
     "LASER_CHARGEGUN": ItemData("Charge Laser", "Weapon"),  # Verified
     "LASER_CHARGEGUN_2": ItemData("Charge Laser II", "Weapon"),  # Verified
+    "LASER_CHARGEGUN_PLAYER": ItemData("Laser Charger", "Weapon"),  # Stealth C variant
     "LASER_HEAVY_1": ItemData("Heavy Laser I", "Weapon"),  # Verified
     "LASER_HEAVY_2": ItemData("Heavy Laser II", "Weapon"),  # Verified
     "LASER_HULL_1": ItemData("Hull Laser I", "Weapon"),  # Verified
